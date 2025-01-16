@@ -1,0 +1,28 @@
+behind_proxy: False
+server: www.example.com
+sg_id: sg-xxx
+sg_region_id: cn-shanghai
+rule_priority: 9
+api:
+  endpoint: ecs.cn-shanghai.aliyuncs.com
+  ak_id: your_access_key_id
+  ak_secret: your_access_key_secret
+max_whitelist_size: 160
+expiry_time: 30
+redis:
+  host: 192.168.40.150
+  port: 6379
+  db: 0
+rabbitmq:
+  host: 192.168.40.150
+  port: 5672
+  user: admin
+  password: "default"
+  virtual_host: default
+  queue_name: aliyundk_queue
+  api:
+    url: http://192.168.40.150:15672/api/
+    username: admin
+    password: "default"
+bluebird:
+  max_retry: 5
