@@ -1,7 +1,9 @@
+from config import appconf
 import subprocess
 import sys
 import threading
 
+sys.stdout.reconfigure(line_buffering=True)
 def stream_output(stream, prefix):
     """
     Read the output of the child process in real time and print it to the console
@@ -12,7 +14,7 @@ def stream_output(stream, prefix):
         sys.stdout.write(f"{prefix}{line}")
     stream.close()
 
-def start_gunicorn(app_module, host="0.0.0.0", port=8000, workers=1):
+def start_gunicorn(app_module, host=appconf['bind'], port=appconf['port'], workers=1):
     """
     Start the Gunicorn server
     """
