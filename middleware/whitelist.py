@@ -57,14 +57,14 @@ class WhiteList:
                                      self.max_size)
         except redis.exceptions.NoScriptError:
             self.load_script()
-            raise E_DatabaseError(f"Please try again")
+            raise E_DatabaseError(f"Please try again (1000)")
         except Exception as e:
             raise E_DatabaseError(f"Script error: {e}")
         res_len = len(res)
         if res_len == 2 and res[0].decode('utf-8') == "EXISTS":
             if res[1] == -1:
                 raise E_InternalError("The synchronization check failed, "
-                                      "please contact the administrator; <br /> "
+                                      "please contact the administrator; "
                                       "Or try again later")
                 # Here we can also post a permission revocation message
                 # However, in this case, Bluebird has not had time to revoke permission
@@ -98,37 +98,45 @@ class WhiteList:
             "ip": ip,
             "retry": 0
         }
-        try:
-            # We publish the del command to mq in the first order
-            # in order to avoid exception happened on the second step
-            # when a add command has already been published
-            mq_channel.basic_publish(
-                exchange='',
-                routing_key=appconf['rabbitmq']['queue_name'],
-                body=json.dumps(queue_data_del),
-                properties=pika.BasicProperties(delivery_mode=2)
-            )
-            mq_channel.basic_publish(
-                exchange='',
-                routing_key=f"{appconf['rabbitmq']['queue_name']}.dead",
-                body=json.dumps(queue_data_add),
-                properties=pika.BasicProperties(delivery_mode=2)
-            )
-        except (pika.exceptions.StreamLostError, pika.exceptions.ChannelWrongStateError):
-            self.redis.evalsha(self.xadd_undo,
-                2,
-                self.queue_name,
-                f"adkusr:{self.name}",
-                ip)
-            mq_init()
-            raise E_InternalError("Please try again")
-        except Exception as e:
-            self.redis.evalsha(self.xadd_undo,
-                2,
-                self.queue_name,
-                f"adkusr:{self.name}",
-                ip)
-            raise Exception(f"MQ error: {e}")
+        retry = 0
+        while True:
+            retry = retry + 1
+            if retry > 3:
+                self.redis.evalsha(self.xadd_undo,
+                    2,
+                    self.queue_name,
+                    f"adkusr:{self.name}",
+                    ip)
+                raise E_InternalError("System Message Component State Abnormal")
+            try:
+                # We publish the del command to mq in the first order
+                # in order to avoid exception happened on the second step
+                # when a add command has already been published
+                mq_channel.basic_publish(
+                    exchange='',
+                    routing_key=appconf['rabbitmq']['queue_name'],
+                    body=json.dumps(queue_data_del),
+                    properties=pika.BasicProperties(delivery_mode=2)
+                )
+                mq_channel.basic_publish(
+                    exchange='',
+                    routing_key=f"{appconf['rabbitmq']['queue_name']}.dead",
+                    body=json.dumps(queue_data_add),
+                    properties=pika.BasicProperties(delivery_mode=2)
+                )
+                break
+            except (pika.exceptions.StreamLostError, 
+                    pika.exceptions.ChannelWrongStateError,
+                    pika.exceptions.AMQPConnectionError):
+                mq_init()
+            except Exception as e:
+                self.redis.evalsha(self.xadd_undo,
+                    2,
+                    self.queue_name,
+                    f"adkusr:{self.name}",
+                    ip)
+                raise Exception(f"MQ error: {e}")
+            break
         
         
         # We use lua script to ensure atomicity

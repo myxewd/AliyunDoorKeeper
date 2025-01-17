@@ -8,10 +8,15 @@ def remove_callback(sg_id, ip):
     queue_data_del = {
         "action": "del",
         "sg_id": sg_id,
-        "ip": ip,
+        "ip": ip.decode(),
         "retry": 0
     }
+    retry = 0
     while True:
+        retry = retry + 1
+        if retry > 3:
+            print(f"Error: Unable to send revoke message of sg_id:{sg_id}; ip:{ip}")
+            break
         try:
             get_channel().basic_publish(
                 exchange='',
