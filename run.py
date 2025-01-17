@@ -7,10 +7,12 @@ def stream_output(stream, prefix):
     Read the output of the child process in real time and print it to the console
     """
     for line in iter(stream.readline, b""):
+        if not line.strip():
+            continue
         sys.stdout.write(f"{prefix}{line}")
     stream.close()
 
-def start_gunicorn(app_module, host="127.0.0.1", port=8000, workers=1):
+def start_gunicorn(app_module, host="0.0.0.0", port=8000, workers=1):
     """
     Start the Gunicorn server
     """
@@ -49,8 +51,8 @@ def main():
     bluebird_process = start_py(bluebird_module)
 
     threads = [
-        # threading.Thread(target=stream_output, args=(gunicorn_process.stdout, "[Gunicorn] ")),
-        # threading.Thread(target=stream_output, args=(gunicorn_process.stderr, "[Gunicorn-Error] ")),
+        threading.Thread(target=stream_output, args=(gunicorn_process.stdout, "[Gunicorn] ")),
+        threading.Thread(target=stream_output, args=(gunicorn_process.stderr, "[Gunicorn-Error] ")),
         threading.Thread(target=stream_output, args=(bluebird_process.stdout, "[Bluebird] ")),
         threading.Thread(target=stream_output, args=(bluebird_process.stderr, "[Bluebird-Error] ")),
     ]
