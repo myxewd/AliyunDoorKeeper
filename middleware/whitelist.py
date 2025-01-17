@@ -1,5 +1,8 @@
+import pika.exceptions
+import middleware
 from middleware import *
-from middleware.arabbitmq import mq_channel
+from middleware.arabbitmq import get_channel
+from middleware.arabbitmq import init as mq_init
 
 class WhiteList:
     """
@@ -31,6 +34,7 @@ class WhiteList:
         with open(os.path.join("middleware", "script", "whitelist.add.undo.lua"), "r") as script_file:
             script_content = script_file.read()
             self.xadd_undo = self.redis.script_load(script_content)
+    
     def __init__(self, name, sg_id, remove_callback, redis):
         self.name = name
         self.queue_name = f"adkqueue:{self.name}"
@@ -41,6 +45,7 @@ class WhiteList:
         
         
     def add(self, ip):
+        mq_channel = get_channel()
         res = []
         try:
             res = self.redis.evalsha(self.xadd,
@@ -57,6 +62,13 @@ class WhiteList:
             raise E_DatabaseError(f"Script error: {e}")
         res_len = len(res)
         if res_len == 2 and res[0].decode('utf-8') == "EXISTS":
+            if res[1] == -1:
+                raise E_InternalError("The synchronization check failed, "
+                                      "please contact the administrator; <br /> "
+                                      "Or try again later")
+                # Here we can also post a permission revocation message
+                # However, in this case, Bluebird has not had time to revoke permission
+                # So just wait for the message processing to complete is ok
             raise E_AlreadyLoggedIn(ip=ip, 
                                     expire_time=datetime.now() + timedelta(seconds=res[1]))
         elif res_len == 2 and res[0].decode('utf-8') == "EXCEEDED":
@@ -102,6 +114,14 @@ class WhiteList:
                 body=json.dumps(queue_data_add),
                 properties=pika.BasicProperties(delivery_mode=2)
             )
+        except (pika.exceptions.StreamLostError, pika.exceptions.ChannelWrongStateError):
+            self.redis.evalsha(self.xadd_undo,
+                2,
+                self.queue_name,
+                f"adkusr:{self.name}",
+                ip)
+            mq_init()
+            raise E_InternalError("Please try again")
         except Exception as e:
             self.redis.evalsha(self.xadd_undo,
                 2,

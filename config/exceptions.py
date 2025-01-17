@@ -19,5 +19,11 @@ class E_InternalError(Exception):
 class E_MQ_Not_Exist(Exception):
     pass
 
+class E_MQ_Not_Ready(Exception):
+    pass
+
 class E_API_Request_Error(Exception):
+    pass
+
+class E_Retry(Exception):
     pass

@@ -9,6 +9,16 @@ if redis.call("EXISTS", key_name) == 1 then
     local ttl = redis.call("TTL", key_name)
     return {"EXISTS", ttl}
 end
+local chk_exist = false
+for i, elem in ipairs(redis.call('LRANGE', KEYS[1], 0, -1)) do
+    if elem == ARGV[1] then
+        chk_exist = true
+        break
+    end
+end
+if chk_exist then
+    return {"EXISTS", -1}
+end
 redis.call("LPUSH", KEYS[1], ARGV[1])
 redis.call("SET", key_name, "1", "EX", ARGV[2])
 if redis.call("LLEN", KEYS[1]) > tonumber(ARGV[3]) then

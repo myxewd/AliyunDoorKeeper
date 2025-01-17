@@ -1,8 +1,11 @@
+# -*- coding: utf-8 -*-
+# 青鸟·信使
+
 from config import appconf
 from config.exceptions import *
 import logging
 import json
-import redis
+from middleware.aredis import redis, rpool
 import pika
 from sdk.alisdk import APIRequest
 
@@ -15,9 +18,7 @@ logging.basicConfig(level=logging.DEBUG,
                     ])
 logger = logging.getLogger('bluebird')
 
-r=redis.Redis(host=appconf['redis']['host'],
-                    port=appconf['redis']['port'],
-                    db=appconf['redis']['db'])
+r=redis.Redis(connection_pool=rpool)
 need_login = True
 try:
     credentials = pika.PlainCredentials(appconf['rabbitmq']['user'], 
@@ -67,7 +68,19 @@ def work(ch, method, properties, body):
                                  src_ip=ip, 
                                  sg_region_id=appconf['sg_region_id'], 
                                  sg_id=sg_id)
-    except E_API_Request_Error:
+            # remove queue member
+            try:
+                r.lrem(name=f"adkqueue:{appconf['server']}",
+                    count=0,
+                    value=ip) 
+            except Exception as e:
+                logger.error(f"Redis queue synchronization failed, ip: {ip};"
+                             f"sg_id: {sg_id};"
+                             f"redis_queue: adkqueue:{appconf['server']}"
+                             f"{e}")
+                raise E_Retry
+            # queue naming rule is defined in middleware.whitelist
+    except (E_API_Request_Error, E_Retry):
         #log has been recorded
         data['retry'] = retry + 1
         mq_channel.basic_publish(exchange='', 

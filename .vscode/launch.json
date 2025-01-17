@@ -8,7 +8,7 @@
       "name": "Python Run: AliyunDoorKeeper",
       "type": "debugpy",
       "request": "launch",
-      "program": "app.py",
+      "program": "run.py",
       "console": "integratedTerminal"
     }
   ]
