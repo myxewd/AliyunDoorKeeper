@@ -75,7 +75,7 @@ except E_MQ_Not_Exist:
     dlq_name = f"{appconf['rabbitmq']['queue_name']}.dead"
     mq_channel.exchange_declare(exchange=dle_name, 
                                 exchange_type='direct')
-    mq_channel.queue_declare(queue=dlq_name)
+    mq_channel.queue_declare(queue=dlq_name, durable=True)
     mq_channel.queue_bind(
         exchange=dle_name,
         queue=dlq_name,
@@ -84,7 +84,8 @@ except E_MQ_Not_Exist:
     mq_channel.queue_declare(queue=appconf['rabbitmq']['queue_name'], 
                              arguments={'x-dead-letter-exchange': dle_name, 
                                         'x-dead-letter-routing-key': dlq_name,
-                                        'x-message-ttl': appconf['expiry_time'] * 1000})
+                                        'x-message-ttl': appconf['expiry_time'] * 1000},
+                             durable=True)
 # we cannot other exceptions here
 
 def get_channel():

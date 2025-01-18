@@ -41,7 +41,7 @@ def mq_init():
                                                                 virtual_host=appconf['rabbitmq']['virtual_host'],
                                                                 heartbeat=30))
     mq_channel = mq_conn.channel()
-    mq_channel.queue_declare(queue=queue_name) 
+    mq_channel.queue_declare(queue=queue_name, durable=True) 
     return mq_conn, mq_channel
 
 # listen to the dead letter queue
@@ -101,6 +101,7 @@ def work(ch, method, properties, body):
                 mq_channel.basic_publish(exchange='',
                                          routing_key=queue_name,
                                         body=json.dumps(data),
+                                        properties=pika.BasicProperties(delivery_mode=2)
                 )
                 break
             except (pika.exceptions.StreamLostError, 
