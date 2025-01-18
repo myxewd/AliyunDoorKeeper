@@ -3,13 +3,16 @@ import requests
 from requests.auth import HTTPBasicAuth
 
 mq_inited = False
+mq_initing = False
 mq_conn = None
 mq_channel = None
 def init():
     global mq_inited
+    global mq_initing
     global mq_conn
     global mq_channel
     mq_inited = False
+    mq_initing = True
     try:
         mq_channel.close()
         mq_conn.close()
@@ -21,20 +24,27 @@ def init():
                                             appconf['rabbitmq']['password'])
     except KeyError:
         need_login = False
-
-    if need_login:
-        mq_conn = pika.BlockingConnection(pika.ConnectionParameters(host=appconf['rabbitmq']['host'],
-                                                                port=appconf['rabbitmq']['port'],
-                                                                virtual_host=appconf['rabbitmq']['virtual_host'],
-                                                                credentials=credentials,
-                                                                heartbeat=60))
-    else:
-        mq_conn = pika.BlockingConnection(pika.ConnectionParameters(host=appconf['rabbitmq']['host'],
-                                                                port=appconf['rabbitmq']['port'],
-                                                                virtual_host=appconf['rabbitmq']['virtual_host'],
-                                                                heartbeat=60))
+    except Exception as e:
+        mq_initing = False
+        raise e
+    try:
+        if need_login:
+            mq_conn = pika.BlockingConnection(pika.ConnectionParameters(host=appconf['rabbitmq']['host'],
+                                                                    port=appconf['rabbitmq']['port'],
+                                                                    virtual_host=appconf['rabbitmq']['virtual_host'],
+                                                                    credentials=credentials,
+                                                                    heartbeat=60))
+        else:
+            mq_conn = pika.BlockingConnection(pika.ConnectionParameters(host=appconf['rabbitmq']['host'],
+                                                                    port=appconf['rabbitmq']['port'],
+                                                                    virtual_host=appconf['rabbitmq']['virtual_host'],
+                                                                    heartbeat=60))
+    except Exception as e:
+        mq_initing = False
+        raise E_InternalError(f"MQ Error: {e}")
     mq_channel = mq_conn.channel()
     mq_inited = True
+    mq_initing = False
 
 # init message queue
 # queue_name: aliyundk_queue
@@ -74,7 +84,8 @@ except E_MQ_Not_Exist:
     dle_name = f"{appconf['rabbitmq']['queue_name']}.deadex"
     dlq_name = f"{appconf['rabbitmq']['queue_name']}.dead"
     mq_channel.exchange_declare(exchange=dle_name, 
-                                exchange_type='direct')
+                                exchange_type='direct',
+                                durable=True)
     mq_channel.queue_declare(queue=dlq_name, durable=True)
     mq_channel.queue_bind(
         exchange=dle_name,
@@ -89,6 +100,10 @@ except E_MQ_Not_Exist:
 # we cannot other exceptions here
 
 def get_channel():
-    if not mq_inited:
-        raise E_MQ_Not_Ready('Please try again')
+    if (not mq_inited) and mq_initing:
+        raise E_MQ_Not_Ready('Please try again (MQ_Initing)')
+    elif (not mq_inited) and (not mq_initing):
+        # Abnormal case
+        init()
+        raise E_InternalError('System Message Component State Abnormal')
     return mq_channel

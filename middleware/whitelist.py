@@ -57,7 +57,7 @@ class WhiteList:
                                      self.max_size)
         except redis.exceptions.NoScriptError:
             self.load_script()
-            raise E_DatabaseError(f"Please try again (1000)")
+            raise E_DatabaseError(f"Please try again (CDB_Initing)")
         except Exception as e:
             raise E_DatabaseError(f"Script error: {e}")
         res_len = len(res)
@@ -128,7 +128,10 @@ class WhiteList:
             except (pika.exceptions.StreamLostError, 
                     pika.exceptions.ChannelWrongStateError,
                     pika.exceptions.AMQPConnectionError):
-                mq_init()
+                try:
+                    mq_init()
+                except Exception as e:
+                    pass
             except Exception as e:
                 self.redis.evalsha(self.xadd_undo,
                     2,
@@ -136,7 +139,6 @@ class WhiteList:
                     f"adkusr:{self.name}",
                     ip)
                 raise Exception(f"MQ error: {e}")
-            break
         
         
         # We use lua script to ensure atomicity
