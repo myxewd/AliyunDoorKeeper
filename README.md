@@ -27,3 +27,6 @@
 | rabbitmq.*         | RabbitMQ配置<br />需要注意的是，该RabbitMQ需要支持通过WebAPI进行管理。 |
 | bluebird.max_retry | 阿里云API重试次数。                                          |
 
+## 运行流程
+
+![FlowChart](https://cdn.jsdelivr.net/gh/myxewd/AliyunDoorKeeper@main/flowchart.svg)
