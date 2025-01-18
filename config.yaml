@@ -1,6 +1,8 @@
 bind: 0.0.0.0
 port: 6082
 behind_proxy: False
+igonre_ips: # Spelling error, will be fixed in future version
+  - 172.17.0.1
 server: www.example.com
 sg_id: sg-xxx
 sg_region_id: cn-shanghai
