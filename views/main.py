@@ -1,5 +1,4 @@
 from views import *
-from app.aliyundk import *
 from config.servers import get_target
 from datetime import datetime, timedelta
 
